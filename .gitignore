@@ -1,0 +1,9 @@
+/*
+!.gitignore
+!/app
+/app/*
+!/app/code
+/app/code/*
+!/app/code/Vuleticd
+/app/code/Vuleticd/*
+!/app/code/Vuleticd/Assist
