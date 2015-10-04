@@ -20,9 +20,24 @@
 /*global define*/
 define(
     [
-        'Magento_Checkout/js/view/payment/default'
+        'jquery',
+        'Magento_Checkout/js/view/payment/default',
+        'Magento_Checkout/js/action/place-order',
+        'Magento_Checkout/js/action/select-payment-method',
+        'Magento_Customer/js/model/customer',
+        'Magento_Checkout/js/checkout-data',
+        'Magento_Checkout/js/model/payment/additional-validators',
+        'mage/url',
     ],
-    function (Component) {
+    function (
+        $,
+        Component,
+        placeOrderAction,
+        selectPaymentMethodAction,
+        customer,
+        checkoutData,
+        additionalValidators,
+        url) {
         'use strict';
 
         return Component.extend({
@@ -44,7 +59,7 @@ define(
                 }
                 if (emailValidationResult && this.validate() && additionalValidators.validate()) {
                     this.isPlaceOrderActionAllowed(false);
-                    placeOrder = placeOrderAction(this.getData(), this.redirectAfterPlaceOrder, this.messageContainer);
+                    placeOrder = placeOrderAction(this.getData(), false, this.messageContainer);
 
                     $.when(placeOrder).fail(function () {
                         self.isPlaceOrderActionAllowed(true);
@@ -61,7 +76,7 @@ define(
             },
 
             afterPlaceOrder: function () {
-                //
+                window.location.replace(url.build('assist/standard/redirect/'));
             }
         });
     }

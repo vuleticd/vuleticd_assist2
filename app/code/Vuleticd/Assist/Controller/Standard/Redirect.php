@@ -25,6 +25,24 @@ class Redirect extends \Magento\Framework\App\Action\Action
     {
         echo 'TTTT';
         /*
+        try {
+            if (!$this->_getOrder()->getId()) {
+                Mage::throwException(Mage::helper('assist')->__('No order for processing found'));
+            }
+            $this->_getCheckoutSession()->setAssistQuoteId($this->_getCheckoutSession()->getQuoteId());
+            $this->loadLayout();
+            $this->renderLayout();
+            $this->_getCheckoutSession()->unsQuoteId();
+            $this->_getCheckoutSession()->unsRedirectUrl();
+            return;
+        } catch (Mage_Core_Exception $e) {
+            $this->_getCheckoutSession()->addError($e->getMessage());
+        } catch(Exception $e) {
+            Mage::helper('assist')->debug('error: ' . $e->getMessage());
+            Mage::logException($e);
+        }
+        $this->_redirect('checkout/cart');
+        ////////////////////////////////////////////
         $pageId = $this->getRequest()->getParam('page_id', $this->getRequest()->getParam('id', false));
         $resultPage = $this->_objectManager->get('Magento\Cms\Helper\Page')->prepareResultPage($this, $pageId);
         if (!$resultPage) {
