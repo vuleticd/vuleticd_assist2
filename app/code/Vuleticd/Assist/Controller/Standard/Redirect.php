@@ -19,37 +19,86 @@
  */
 namespace Vuleticd\Assist\Controller\Standard;
 
+use Magento\Framework\Controller\ResultFactory;
+
 class Redirect extends \Magento\Framework\App\Action\Action
 {
-    public function execute()
+
+    /**
+     * @var \Magento\Checkout\Model\Session
+     */
+    protected $_checkoutSession;
+
+    /**
+     * @var \Magento\Sales\Model\OrderFactory
+     */
+    protected $_orderFactory;
+
+    /**
+     * Order object
+     *
+     * @var \Magento\Sales\Model\Order
+     */
+    protected $_order;
+
+    /**
+     * @var \Psr\Log\LoggerInterface
+     */
+    protected $_logger;
+
+    /**
+     * @param \Magento\Framework\App\Action\Context $context
+     * @param \Magento\Checkout\Model\Session $checkoutSession
+     * @param \Magento\Sales\Model\OrderFactory $orderFactory
+     * @param \Psr\Log\LoggerInterface $logger
+     */
+    public function __construct(
+        \Magento\Framework\App\Action\Context $context,
+        \Magento\Checkout\Model\Session $checkoutSession,
+        \Magento\Sales\Model\OrderFactory $orderFactory,
+        \Psr\Log\LoggerInterface $logger
+    ) {
+        $this->_checkoutSession = $checkoutSession;
+        $this->_orderFactory = $orderFactory;
+        $this->_logger = $logger;
+        parent::__construct($context);
+    }
+
+    protected function _getOrder($incrementId= null)
     {
-        echo 'TTTT';
-        /*
+        if (!$this->_order) {
+            $incrementId = $incrementId ? $incrementId : $this->_getCheckout()->getLastRealOrderId();
+            $this->_order = $this->_orderFactory->create()->loadByIncrementId($incrementId);
+        }
+        return $this->_order;
+    }
+
+    /**
+     * Get frontend checkout session object
+     *
+     * @return \Magento\Checkout\Model\Session
+     */
+    protected function _getCheckout()
+    {
+        return $this->_checkoutSession;
+    }
+
+    public function execute()
+    {   
         try {
             if (!$this->_getOrder()->getId()) {
-                Mage::throwException(Mage::helper('assist')->__('No order for processing found'));
+                throw new \Magento\Framework\Exception\LocalizedException(__('No order for processing found'));
             }
-            $this->_getCheckoutSession()->setAssistQuoteId($this->_getCheckoutSession()->getQuoteId());
-            $this->loadLayout();
-            $this->renderLayout();
-            $this->_getCheckoutSession()->unsQuoteId();
-            $this->_getCheckoutSession()->unsRedirectUrl();
+            $this->_getCheckout()->setAssistQuoteId($this->_getCheckout()->getQuoteId());
+            $this->_view->loadLayout()->renderLayout();
+            $this->_getCheckout()->unsQuoteId();
+            $this->_getCheckout()->unsRedirectUrl();
             return;
-        } catch (Mage_Core_Exception $e) {
-            $this->_getCheckoutSession()->addError($e->getMessage());
-        } catch(Exception $e) {
-            Mage::helper('assist')->debug('error: ' . $e->getMessage());
-            Mage::logException($e);
+        } catch (\Exception $e) {
+            $this->_logger->critical($e);
         }
-        $this->_redirect('checkout/cart');
-        ////////////////////////////////////////////
-        $pageId = $this->getRequest()->getParam('page_id', $this->getRequest()->getParam('id', false));
-        $resultPage = $this->_objectManager->get('Magento\Cms\Helper\Page')->prepareResultPage($this, $pageId);
-        if (!$resultPage) {
-            $resultForward = $this->resultForwardFactory->create();
-            return $resultForward->forward('noroute');
-        }
-        return $resultPage;
-        */
+        /** @var \Magento\Framework\Controller\Result\Redirect $resultRedirect */
+        $resultRedirect = $this->resultFactory->create(ResultFactory::TYPE_REDIRECT);
+        return $resultRedirect->setPath('checkout/cart');
     }
 }

@@ -65,6 +65,17 @@ class Payment extends \Magento\Payment\Model\Method\AbstractMethod
      */
     protected $_checkoutSession;
 
+    /**
+     * @var \Magento\Framework\Locale\ResolverInterface
+     */
+    protected $_localeResolver;
+
+    /**
+     * @var \Vuleticd\Assist\Helper\Data
+     */
+    protected $_assistHelper;
+
+
     public function __construct(
         \Magento\Framework\Model\Context $context,
         \Magento\Framework\Registry $registry,
@@ -76,6 +87,8 @@ class Payment extends \Magento\Payment\Model\Method\AbstractMethod
         \Magento\Framework\UrlInterface $urlBuilder,
         \Magento\Checkout\Model\Session $checkoutSession,
         \Psr\Log\LoggerInterface $debugger,
+        \Magento\Framework\Locale\ResolverInterface $localeResolver,
+        \Vuleticd\Assist\Helper\Data $assistHelper,
         \Magento\Framework\Model\Resource\AbstractResource $resource = null,
         \Magento\Framework\Data\Collection\AbstractDb $resourceCollection = null,
         array $data = []
@@ -95,7 +108,8 @@ class Payment extends \Magento\Payment\Model\Method\AbstractMethod
         $this->_urlBuilder = $urlBuilder;
         $this->_checkoutSession = $checkoutSession;
         $this->_debugger = $debugger;
-        //$this->_exception = $exception;
+        $this->_localeResolver = $localeResolver;
+        $this->_assistHelper = $assistHelper;
         //$this->transactionRepository = $transactionRepository;
         //$this->transactionBuilder = $transactionBuilder;
     }
@@ -108,7 +122,7 @@ class Payment extends \Magento\Payment\Model\Method\AbstractMethod
     public function getOrder()
     {
         if (!$this->_order) {
-            $this->_order = $this->getInfoInstance()->getOrder();
+            $this->_order = $this->_checkoutSession->getLastRealOrder();
         }
         return $this->_order;
     }
@@ -154,6 +168,78 @@ class Payment extends \Magento\Payment\Model\Method\AbstractMethod
         $stateObject->setStatus('pending_payment');
         $stateObject->setIsNotified(false);
         return $this;
+    }
+
+    public function getFormFields()
+    {        
+        $locale = $this->_localeResolver->getLocale();
+        $language = strtoupper(substr( $locale, 0, strpos( $locale, '_' ) ));
+        $orderAmount = number_format($this->getOrder()->getGrandTotal(), 2, '.', '');
+        $billingAddress = $this->getOrder()->getBillingAddress();
+        $urlReturnOk = $this->_urlBuilder->getUrl("assist/standard/success", array('_secure' => true));
+        $urlReturnNo = $this->_urlBuilder->getUrl("assist/standard/cancel", array('_secure' => true));
+        $fields = array(
+            'Merchant_ID' => $this->getConfigData('merchant'),
+            'Delay' => $this->getConfigPaymentAction() == self::ACTION_AUTHORIZE ? 1 : 0,
+            'OrderNumber' => $this->getOrder()->getRealOrderId(),
+            'Language' => $language,
+            'OrderAmount' => $orderAmount,
+            'OrderCurrency' => $this->getOrder()->getBaseCurrencyCode(),
+            'Lastname' => $billingAddress->getLastname(),
+            'Firstname' => $billingAddress->getFirstname(),
+            'Email' => $this->getOrder()->getCustomerEmail(),
+            'MobilePhone' => $billingAddress->getMobile(),
+            'URL_RETURN_OK' => $urlReturnOk,
+            'URL_RETURN_NO' => $urlReturnNo,
+            'OrderComment' => '',
+            'Middlename' => $billingAddress->getMiddlename(),
+            'Address'   => implode(", ", $billingAddress->getStreet()),
+            'HomePhone' => $billingAddress->getTelephone(),
+            'WorkPhone' => $billingAddress->getWorkphone(),
+            'Fax' => $billingAddress->getFax(),
+            'Country' => $billingAddress->getCountryId(), //getCountryModel()->getIso3Code(),
+            'State' => $billingAddress->getRegionCode(),
+            'City' => $billingAddress->getCity(),
+            'Zip' => $billingAddress->getPostcode(),
+            'MobileDevice' => $this->getConfigData('mobile')
+        );
+        $fields = $this->_mergePaymentSystems($fields);
+        /*
+        if (Mage::helper('assist')->isOrderSecuredMd5()) {
+            $x = array(
+                $this->getConfigData('merchant'),
+                $this->getOrder()->getRealOrderId(),
+                $orderAmount,
+                $this->getOrder()->getBaseCurrencyCode()
+            );
+            $fields['Checkvalue'] = $this->secreyKey(implode(self::SEND_SEPARATOR, $x));
+        }
+        if (Mage::helper('assist')->isOrderSecuredPgp()) {
+            $y = md5(implode(self::SEND_SEPARATOR, array(
+                $this->getConfigData('merchant'),
+                $this->getOrder()->getRealOrderId(),
+                $orderAmount,
+                $this->getOrder()->getBaseCurrencyCode()
+            )));
+            $keyFile = Mage::getBaseDir('var') . DS . self::PEM_DIR . DS . $this->getConfigData('merchant_key');
+            $fields['Signature'] = $this->sign($y, $keyFile);
+        }
+        */
+        //Mage::helper('assist')->debug($fields);
+        $this->_debugger->debug(var_export($fields, true));
+        return $fields;
+    }
+
+    protected function _mergePaymentSystems($data)
+    {
+        $systems = explode(",", $this->getConfigData('payment_system'));
+        if (in_array('Controlled', $systems)) {
+            return $data;
+        } 
+        foreach ((array) $systems as $system) {
+            $data[$system] = '1';
+        }
+        return $data;
     }
 
 }
