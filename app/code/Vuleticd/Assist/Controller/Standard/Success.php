@@ -21,7 +21,7 @@ namespace Vuleticd\Assist\Controller\Standard;
 
 use Magento\Framework\Controller\ResultFactory;
 
-class Cancel extends \Magento\Framework\App\Action\Action
+class Success extends \Magento\Framework\App\Action\Action
 {
 	/**
      * @var \Magento\Checkout\Model\Session
@@ -87,26 +87,31 @@ class Cancel extends \Magento\Framework\App\Action\Action
     public function execute()
     {
         $params = $this->getRequest()->getParams();
-        $session = $this->_getCheckout();
-        $session->setQuoteId($session->getAssistQuoteId(true));
         $orderId = $params['ordernumber'];
         $order = $this->_getOrder($orderId);
-        $quote = $this->_quoteFactory->create()->load($order->getQuoteId());
         $txnId = $params['billnumber'];
-        if ($order->getBaseTotalDue() && $quote->getId()) {
-        	$order->registerCancellation(__('Customer payment on ASSIST failed.'))->save();
-        	$this->messageManager->addSuccessMessage(
-                    __('Sorry, your transaction is failed and cannot be'
-                        . ' processed, please choose another payment method'
-                        . ' or contact Customer Care to complete'
-                        . ' your order.')
-                );
-        	if ($this->_getCheckout()->restoreQuote()) {
-	            /** @var \Magento\Framework\Controller\Result\Redirect $resultRedirect */
-		        $resultRedirect = $this->resultFactory->create(ResultFactory::TYPE_REDIRECT);
-		        return $resultRedirect->setPath('checkout/cart');
-	        }  
+        $paymentInst = $order->getPayment()->getMethodInstance();
+        try {
+            $session = $this->_getCheckout();
+            if ($session->getLastRealOrderId() != $orderId) {
+                throw new \Magento\Framework\Exception\LocalizedException(__('Order not in session'));
+            }
+            if (\Magento\Sales\Model\Order::STATE_CANCELED == $order->getState()) {
+                throw new \Magento\Framework\Exception\LocalizedException(__('Order already canceled'));
+            }
+            
+            $state = $paymentInst->orderstate($order);
+            $session->setQuoteId($session->getAssistQuoteId(true));
+            $session->getQuote()->setIsActive(false)->save();
+            // success payments URL
+            $resultRedirect = $this->resultFactory->create(ResultFactory::TYPE_REDIRECT);
+            return $resultRedirect->setPath('checkout/onepage/success');
+            
+        } catch(\Magento\Framework\Exception\LocalizedException $e) {
+            $this->_logger->debug('SUCCESS Error: ' . $e->getMessage());
         }
-        $this->_logger->debug('cancel');
+        $this->_logger->debug('success');
+        $resultRedirect = $this->resultFactory->create(ResultFactory::TYPE_REDIRECT);
+        return $resultRedirect->setPath('');
     }
 }
