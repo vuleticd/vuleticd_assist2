@@ -43,19 +43,31 @@ Features:
 Installation
 ------------------------
 
-1. Go to Magento2 root folder
-2. Enter following commands to install module:
+Enter following commands to install module:
+
+	```bash
+	cd MAGE2_ROOT_DIR
+	# install
+	composer config repositories.vuleticdassist git https://github.com/vuleticd/vuleticd_assist2.git
+	composer require vuleticd/assist:dev-master
+	# enable
+	php bin/magento module:enable Vuleticd_Assist --clear-static-content
+	php bin/magento setup:upgrade
+	php bin/magento setup:static-content:deploy
+	```
+
+Enable and configure ASSIST in Magento Admin under Stores/Configuration/Sales/Payment Methods/ASSIST
+
+Uninstall
+------------------------
+
+Enter following commands to disable and uninstall module:
 
     ```bash
-    composer config repositories.vuleticdassist git https://github.com/vuleticd/vuleticd_assist2.git
-    composer require vuleticd/assist:dev-master
+    cd MAGE2_ROOT_DIR
+    # disable
+    php bin/magento module:disable Vuleticd_Assist --clear-static-content    
+    # uninstall
+    php bin/magento module:uninstall Vuleticd_Assist --clear-static-content
+    php bin/magento setup:static-content:deploy
     ```
-   Wait while dependencies are updated.
-
-3. Enter following commands to enable module:
-
-    ```bash
-    php bin/magento module:enable Vuleticd_Assist --clear-static-content
-    php bin/magento setup:upgrade
-    ```
-4. Enable and configure ASSIST in Magento Admin under Stores/Configuration/Sales/Payment Methods/ASSIST
